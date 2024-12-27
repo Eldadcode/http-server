@@ -40,8 +40,6 @@ func handleConnection(conn net.Conn) {
 	response_buffer = append(response_buffer, fmt.Sprintf("Content-Length: %d\n\n", http_response.ContentLength)...)
 	response_buffer = append(response_buffer, http_response.Content...)
 
-	fmt.Printf("%s\n", response_buffer)
-
 	conn.Write(response_buffer)
 }
 
