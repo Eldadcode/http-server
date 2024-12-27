@@ -24,8 +24,11 @@ var default404Page []byte
 type HTTPRequest struct {
 	Method  string
 	Path    string
-	Headers map[string]string
-	Body    []byte
+	Version string
+}
+
+func (r HTTPRequest) String() string {
+	return fmt.Sprintf("%s %s %s", r.Method, r.Path, r.Version)
 }
 
 type HTTPResponse struct {
@@ -48,6 +51,7 @@ func (r HTTPResponse) Bytes() []byte {
 	return append(response_buffer, r.Content...)
 }
 
+var httpMethodHandlers map[string]func(HTTPRequest) (HTTPResponse, error) = map[string]func(HTTPRequest) (HTTPResponse, error){"GET": handleGETRequest}
 
 var contentTypes map[string]string = map[string]string{
 	"txt":  "text/plain",
@@ -68,10 +72,10 @@ var contentTypes map[string]string = map[string]string{
 	"pdf":  "application/pdf",
 }
 
-func parseStartLine(start_line string) (string, string) {
+func parseStartLine(start_line string) (string, string, string) {
 	split_result := strings.Split(start_line, " ")
-	http_method, path := split_result[0], split_result[1]
-	return http_method, path
+	http_method, path, version := split_result[0], split_result[1], strings.TrimSuffix(split_result[2], "\r")
+	return http_method, path, version
 }
 
 func parseHTTPRequest(raw_request []byte) (HTTPRequest, error) {
@@ -80,10 +84,8 @@ func parseHTTPRequest(raw_request []byte) (HTTPRequest, error) {
 	var err error
 
 	split_request := strings.Split(request, "\n")
-	method, path := parseStartLine(split_request[0])
 
-	http_request.Method = method
-	http_request.Path = path
+	http_request.Method, http_request.Path, http_request.Version = parseStartLine(split_request[0])
 
 	return http_request, err
 }
@@ -97,13 +99,16 @@ func generateHTTPResponse(status HTTPStatusCode, content []byte, content_type st
 		ContentLength: len(content),
 	}
 }
-func handleGETRequest(file_path string) (HTTPResponse, error) {
+func handleGETRequest(http_request HTTPRequest) (HTTPResponse, error) {
 	var http_response HTTPResponse
+	var file_path string = http_request.Path
+
 	if file_path == "/" {
 		file_path = "/index.html"
 	}
 
 	if _, err := os.Stat(file_path[1:]); errors.Is(err, os.ErrNotExist) {
+		log.Printf("%s %s\n", http_request, HTTP_NOT_FOUND)
 		http_response = generateHTTPResponse(HTTP_NOT_FOUND, default404Page, "text/html; charset=utf-8")
 		return http_response, nil
 	}
@@ -118,7 +123,7 @@ func handleGETRequest(file_path string) (HTTPResponse, error) {
 	if !ok {
 		content_type = "application/octet-stream"
 	}
-
+	log.Printf("%s %s\n", http_request, HTTP_OK)
 	http_response = generateHTTPResponse(HTTP_OK, file_content, content_type)
 
 	return http_response, err
@@ -134,7 +139,7 @@ func HandleHTTPRequest(raw_request []byte) (HTTPResponse, error) {
 	handler, ok := httpMethodHandlers[http_request.Method]
 
 	if ok {
-		http_response, err = handler(http_request.Path)
+		http_response, err = handler(http_request)
 	} else {
 		log.Printf("Got a %s Request, which is not supported\n", http_request.Method)
 		err = fmt.Errorf("unsupported request: %s", http_request.Method)
