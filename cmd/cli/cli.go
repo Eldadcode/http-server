@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+
 	"github.com/Eldadcode/http-server/pkg/server"
 )
 
 func main() {
 	var err error
 	var port uint64
+
 	if len(os.Args) == 1 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <port>\n", os.Args[0])
 		os.Exit(1)
@@ -20,6 +22,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Server started on port port %d\n", port)
+	fmt.Printf("Server started on http://localhost:%d\n", port)
 	server.StartServer(uint16(port))
 }
