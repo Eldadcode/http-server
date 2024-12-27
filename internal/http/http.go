@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path"
 	"strings"
 	"time"
 )
@@ -38,6 +39,25 @@ type HTTPResponse struct {
 
 var httpMethodHandlers map[string]func(string) (HTTPResponse, error) = map[string]func(string) (HTTPResponse, error){"GET": handleGETRequest}
 
+var contentTypes map[string]string = map[string]string{
+	"txt":  "text/plain",
+	"html": "text/html",
+	"css":  "text/css",
+	"js":   "text/javascript",
+
+	"jpeg": "image/jpeg",
+	"jpg":  "image/jpeg",
+	"png":  "image/png",
+	"gif":  "image/gif",
+
+	"mpeg": "audio/mpeg",
+	"mp4":  "video/mp4",
+
+	"json": "application/json",
+	"xml":  "application/xml",
+	"pdf":  "application/pdf",
+}
+
 func parseStartLine(start_line string) (string, string) {
 	split_result := strings.Split(start_line, " ")
 	http_method, path := split_result[0], split_result[1]
@@ -57,34 +77,39 @@ func parseHTTPRequest(raw_request []byte) (HTTPRequest, error) {
 
 	return http_request, err
 }
-func generateHTTPResponse(status HTTPStatusCode, content []byte) HTTPResponse {
+func generateHTTPResponse(status HTTPStatusCode, content []byte, content_type string) HTTPResponse {
 	return HTTPResponse{
 		Status:        status,
 		Server:        "Eldad's GO HTTP Server",
 		Date:          time.Now().String(),
 		Content:       content,
-		ContentType:   "text/html; charset=utf-8",
+		ContentType:   content_type,
 		ContentLength: len(content),
 	}
 }
-func handleGETRequest(path string) (HTTPResponse, error) {
+func handleGETRequest(file_path string) (HTTPResponse, error) {
 	var http_response HTTPResponse
-	if path == "/" {
-		path = "/index.html"
+	if file_path == "/" {
+		file_path = "/index.html"
 	}
 
-	if _, err := os.Stat(path[1:]); errors.Is(err, os.ErrNotExist) {
-		http_response = generateHTTPResponse(HTTP_NOT_FOUND, default404Page)
+	if _, err := os.Stat(file_path[1:]); errors.Is(err, os.ErrNotExist) {
+		http_response = generateHTTPResponse(HTTP_NOT_FOUND, default404Page, "text/html; charset=utf-8")
 		return http_response, nil
 	}
 
-	file_content, err := os.ReadFile(path[1:])
+	file_content, err := os.ReadFile(file_path[1:])
 	if err != nil {
 		fmt.Println(err)
 		return http_response, err
 	}
+	file_extension := path.Ext(file_path[1:])
+	content_type, ok := contentTypes[file_extension[1:]]
+	if !ok {
+		content_type = "application/octet-stream"
+	}
 
-	http_response = generateHTTPResponse(HTTP_OK, file_content)
+	http_response = generateHTTPResponse(HTTP_OK, file_content, content_type)
 
 	return http_response, err
 }
