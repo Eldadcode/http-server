@@ -21,26 +21,18 @@ func readEntirePacket(conn net.Conn) ([]byte, error) {
 	return buf[:n], nil
 }
 
-func handleConnection(conn net.Conn) {
-	var response_buffer []byte = []byte("HTTP/1.0 ")
-	defer conn.Close()
-	buf, err := readEntirePacket(conn)
+func handleConnection(connection net.Conn) {
+	defer connection.Close()
+	buf, err := readEntirePacket(connection)
 	if err != nil {
-		conn.Write([]byte("Error reading packet"))
+		connection.Write([]byte("Error reading packet"))
 	}
 	http_response, err := http.HandleHTTPRequest(buf)
 	if err != nil {
-		conn.Write([]byte("Error with parsing HTTP request"))
+		connection.Write([]byte("Error with parsing HTTP request"))
 	}
 
-	response_buffer = append(response_buffer, fmt.Sprintf("%s\n", http_response.Status)...)
-	response_buffer = append(response_buffer, fmt.Sprintf("Server: %s\n", http_response.Server)...)
-	response_buffer = append(response_buffer, fmt.Sprintf("Date: %s\n", http_response.Date)...)
-	response_buffer = append(response_buffer, fmt.Sprintf("Content-type: %s\n", http_response.ContentType)...)
-	response_buffer = append(response_buffer, fmt.Sprintf("Content-Length: %d\n\n", http_response.ContentLength)...)
-	response_buffer = append(response_buffer, http_response.Content...)
-
-	conn.Write(response_buffer)
+	connection.Write(http_response.Bytes())
 }
 
 func StartServer(port uint16) error {

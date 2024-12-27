@@ -37,7 +37,17 @@ type HTTPResponse struct {
 	ContentLength int
 }
 
-var httpMethodHandlers map[string]func(string) (HTTPResponse, error) = map[string]func(string) (HTTPResponse, error){"GET": handleGETRequest}
+func (r HTTPResponse) Bytes() []byte {
+	var response_buffer []byte = []byte(fmt.Sprintf("HTTP/1.0 %s\nServer: %s\nDate: %s\nContent-type: %s\nContent-Length: %d\n\n",
+		r.Status,
+		r.Server,
+		r.Date,
+		r.ContentType,
+		r.ContentLength))
+
+	return append(response_buffer, r.Content...)
+}
+
 
 var contentTypes map[string]string = map[string]string{
 	"txt":  "text/plain",
