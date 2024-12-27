@@ -4,11 +4,21 @@ import (
 	"fmt"
 	"net"
 )
+func readEntirePacket(conn net.Conn) ([]byte, error) {
+	buf := make([]byte, 1024)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf[:n], nil
+}
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	buf := make([]byte, 1024)
-	conn.Read(buf)
+	buf, err := readEntirePacket(conn)
+	if err != nil {
+		conn.Write([]byte("Error reading packet"))
+	}
 	fmt.Printf("Received: %s\n", string(buf))
 
 }
