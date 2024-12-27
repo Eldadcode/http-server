@@ -4,6 +4,11 @@ import (
 	"fmt"
 	"net"
 )
+
+const (
+	defaultPort uint16 = 8080
+)
+
 func readEntirePacket(conn net.Conn) ([]byte, error) {
 	buf := make([]byte, 1024)
 	n, err := conn.Read(buf)
@@ -24,11 +29,17 @@ func handleConnection(conn net.Conn) {
 }
 
 func StartServer(port uint16) error {
+	if port == 0 {
+		port = defaultPort
+	}
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		fmt.Printf("Error starting server: %s\n", err.Error())
 		return err
 	}
+
+	fmt.Printf("Server started on http://localhost:%d\n", port)
+	
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
