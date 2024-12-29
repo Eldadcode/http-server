@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 
@@ -24,5 +25,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	server.StartServer(uint16(port))
+	err = server.StartServer(uint16(port))
+	if err != nil {
+		log.Fatal(err)
+	}
 }
