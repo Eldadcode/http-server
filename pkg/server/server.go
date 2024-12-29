@@ -25,16 +25,26 @@ func handleConnection(connection net.Conn) {
 	defer connection.Close()
 	buf, err := readEntirePacket(connection)
 	if err != nil {
-		connection.Write([]byte("Error reading packet"))
+		_, err = connection.Write([]byte("Error reading packet"))
+		if err != nil {
+			log.Printf("Failed writing to connection\n")
+		}
 	}
-	http_response, err := http.HandleHTTPRequest(buf)
+	httpResponse, err := http.HandleRequest(buf)
 	if err != nil {
-		connection.Write([]byte("Error with parsing HTTP request"))
+		_, err = connection.Write([]byte("Error with parsing HTTP request"))
+		if err != nil {
+			log.Printf("Failed writing to connection\n")
+		}
 	}
 
-	connection.Write(http_response.Bytes())
+	_, err = connection.Write(httpResponse.Bytes())
+	if err != nil {
+		log.Printf("Failed writing to connection\n")
+	}
 }
 
+// StartServer serves an HTTP server on a given port
 func StartServer(port uint16) error {
 	if port == 0 {
 		port = defaultPort

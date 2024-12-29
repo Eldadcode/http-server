@@ -1,7 +1,7 @@
 package http
 
 import (
-	_ "embed"
+	_ "embed" // Used to embed the contents of the default404Page file into a variable
 	"errors"
 	"fmt"
 	"log"
@@ -11,28 +11,30 @@ import (
 	"time"
 )
 
-type HTTPStatusCode string
+type httpStatusCode string
 
 const (
-	HTTP_OK        HTTPStatusCode = "200 OK"
-	HTTP_NOT_FOUND HTTPStatusCode = "404 File not found"
+	httpOk       httpStatusCode = "200 OK"
+	httpNotFound httpStatusCode = "404 File not found"
 )
 
 //go:embed templates/page_not_found.html
 var default404Page []byte
 
-type HTTPRequest struct {
+// Request represents the data of an HTTP request
+type Request struct {
 	Method  string
 	Path    string
 	Version string
 }
 
-func (r HTTPRequest) String() string {
+func (r Request) String() string {
 	return fmt.Sprintf("%s %s %s", r.Method, r.Path, r.Version)
 }
 
-type HTTPResponse struct {
-	Status        HTTPStatusCode
+// Response represents the data of an HTTP response
+type Response struct {
+	Status        httpStatusCode
 	Server        string
 	Date          string
 	Content       []byte
@@ -40,18 +42,19 @@ type HTTPResponse struct {
 	ContentLength int
 }
 
-func (r HTTPResponse) Bytes() []byte {
-	var response_buffer []byte = []byte(fmt.Sprintf("HTTP/1.0 %s\nServer: %s\nDate: %s\nContent-type: %s\nContent-Length: %d\n\n",
+// Bytes structures that data from the Response struct to a bytes slice
+func (r Response) Bytes() []byte {
+	var responseBuffer []byte = []byte(fmt.Sprintf("HTTP/1.0 %s\nServer: %s\nDate: %s\nContent-type: %s\nContent-Length: %d\n\n",
 		r.Status,
 		r.Server,
 		r.Date,
 		r.ContentType,
 		r.ContentLength))
 
-	return append(response_buffer, r.Content...)
+	return append(responseBuffer, r.Content...)
 }
 
-var httpMethodHandlers map[string]func(HTTPRequest) (HTTPResponse, error) = map[string]func(HTTPRequest) (HTTPResponse, error){"GET": handleGETRequest}
+var httpMethodHandlers map[string]func(Request) (Response, error) = map[string]func(Request) (Response, error){"GET": handleGETRequest}
 
 var contentTypes map[string]string = map[string]string{
 	"txt":  "text/plain",
@@ -72,78 +75,79 @@ var contentTypes map[string]string = map[string]string{
 	"pdf":  "application/pdf",
 }
 
-func parseStartLine(start_line string) (string, string, string) {
-	split_result := strings.Split(start_line, " ")
-	http_method, path, version := split_result[0], split_result[1], strings.TrimSuffix(split_result[2], "\r")
-	return http_method, path, version
+func parseStartLine(startLine string) (string, string, string) {
+	splitResult := strings.Split(startLine, " ")
+	httpMethod, path, version := splitResult[0], splitResult[1], strings.TrimSuffix(splitResult[2], "\r")
+	return httpMethod, path, version
 }
 
-func parseHTTPRequest(raw_request []byte) (HTTPRequest, error) {
-	var request string = string(raw_request)
-	var http_request HTTPRequest
+func parseHTTPRequest(rawRequest []byte) (Request, error) {
+	var request string = string(rawRequest)
+	var httpRequest Request
 	var err error
 
-	split_request := strings.Split(request, "\n")
+	splitRequest := strings.Split(request, "\n")
 
-	http_request.Method, http_request.Path, http_request.Version = parseStartLine(split_request[0])
+	httpRequest.Method, httpRequest.Path, httpRequest.Version = parseStartLine(splitRequest[0])
 
-	return http_request, err
+	return httpRequest, err
 }
-func generateHTTPResponse(status HTTPStatusCode, content []byte, content_type string) HTTPResponse {
-	return HTTPResponse{
+func generateHTTPResponse(status httpStatusCode, content []byte, contentType string) Response {
+	return Response{
 		Status:        status,
 		Server:        "Eldad's GO HTTP Server",
 		Date:          time.Now().String(),
 		Content:       content,
-		ContentType:   content_type,
+		ContentType:   contentType,
 		ContentLength: len(content),
 	}
 }
-func handleGETRequest(http_request HTTPRequest) (HTTPResponse, error) {
-	var http_response HTTPResponse
-	var file_path string = http_request.Path
+func handleGETRequest(httpRequest Request) (Response, error) {
+	var httpResponse Response
+	var filePath string = httpRequest.Path
 
-	if file_path == "/" {
-		file_path = "/index.html"
+	if filePath == "/" {
+		filePath = "/index.html"
 	}
 
-	if _, err := os.Stat(file_path[1:]); errors.Is(err, os.ErrNotExist) {
-		log.Printf("%s %s\n", http_request, HTTP_NOT_FOUND)
-		http_response = generateHTTPResponse(HTTP_NOT_FOUND, default404Page, "text/html; charset=utf-8")
-		return http_response, nil
+	if _, err := os.Stat(filePath[1:]); errors.Is(err, os.ErrNotExist) {
+		log.Printf("%s %s\n", httpRequest, httpNotFound)
+		httpResponse = generateHTTPResponse(httpNotFound, default404Page, "text/html; charset=utf-8")
+		return httpResponse, nil
 	}
 
-	file_content, err := os.ReadFile(file_path[1:])
+	fileContent, err := os.ReadFile(filePath[1:])
 	if err != nil {
 		fmt.Println(err)
-		return http_response, err
+		return httpResponse, err
 	}
-	file_extension := path.Ext(file_path[1:])
-	content_type, ok := contentTypes[file_extension[1:]]
+	fileExtension := path.Ext(filePath[1:])
+	contentType, ok := contentTypes[fileExtension[1:]]
 	if !ok {
-		content_type = "application/octet-stream"
+		contentType = "application/octet-stream"
 	}
-	log.Printf("%s %s\n", http_request, HTTP_OK)
-	http_response = generateHTTPResponse(HTTP_OK, file_content, content_type)
+	log.Printf("%s %s\n", httpRequest, httpOk)
+	httpResponse = generateHTTPResponse(httpOk, fileContent, contentType)
 
-	return http_response, err
+	return httpResponse, err
 }
 
-func HandleHTTPRequest(raw_request []byte) (HTTPResponse, error) {
-	var http_response HTTPResponse
-	http_request, err := parseHTTPRequest(raw_request)
+// HandleRequest handles a raw http request and returns a valid Resposne
+func HandleRequest(rawRequest []byte) (Response, error) {
+	var httpResponse Response
+	httpRequest, err := parseHTTPRequest(rawRequest)
 	if err != nil {
-		return http_response, err
+		return httpResponse, err
 	}
 
-	handler, ok := httpMethodHandlers[http_request.Method]
+	handler, ok := httpMethodHandlers[httpRequest.Method]
 
 	if ok {
-		http_response, err = handler(http_request)
+		httpResponse, err = handler(httpRequest)
 	} else {
-		log.Printf("Got a %s Request, which is not supported\n", http_request.Method)
-		err = fmt.Errorf("unsupported request: %s", http_request.Method)
+		log.Printf("Got a %s Request, which is not supported\n", httpRequest.Method)
+		err = fmt.Errorf("unsupported request: %s", httpRequest.Method)
 	}
-	return http_response, err
+	return httpResponse, err
 
 }
